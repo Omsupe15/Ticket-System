@@ -61,16 +61,6 @@ The API documentation (Swagger UI) is available at `http://localhost:8000/docs`.
 
 ---
 
-## Running Tests
-
-Tests live in the `tests/` directory and use an **in-memory SQLite** database — no real PostgreSQL needed.
-
-```bash
-pytest
-```
-
----
-
 ## API Reference
 
 | Method | Endpoint | Description |

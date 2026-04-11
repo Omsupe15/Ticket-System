@@ -6,13 +6,7 @@ A structured customer-support ticketing system that ingests messages from **Tele
 
 ## Architecture
 
-| Node | Purpose | Key Files |
-|------|---------|-----------|
-| **Node 1** | External API integration (bots) | `Server/telegram_bot.py`, `Server/discord_bot.py` |
-| **Node 2** | Database design & persistence | `Server/models.py`, `Server/ticket_store.py`, `Server/node2_database.py` |
-| **Node 3** | Internal REST API (FastAPI) | `Server/api.py` |
-
-See [`docs/architecture.md`](docs/architecture.md) for the full specification.
+[`docs/architecture.md`](docs/architecture.md) for the full specification.
 
 ---
 

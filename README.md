@@ -97,29 +97,3 @@ pytest
 
 ---
 
-## Project Structure
-
-```
-Ticket-System/
-├── Server/
-│   ├── api.py              # Node 3 – FastAPI application
-│   ├── config.py           # Environment configuration
-│   ├── db.py               # SQLAlchemy engine / session setup
-│   ├── discord_bot.py      # Node 1 – Discord gateway client
-│   ├── models.py           # Node 2 – SQLAlchemy ORM models
-│   ├── node2_database.py   # Node 2 – DB initialization helpers
-│   ├── schemas.py          # Node 1 – TicketIngress schema
-│   ├── telegram_bot.py     # Node 1 – Telegram webhook setup & parser
-│   └── ticket_store.py     # Node 2 – Core ticket create/append logic
-├── tests/
-│   ├── conftest.py         # Shared fixtures (in-memory DB, TestClient)
-│   ├── test_api.py         # Node 3 endpoint tests
-│   ├── test_discord_bot.py # Node 1 Discord normalization tests
-│   ├── test_telegram_bot.py# Node 1 Telegram parser tests
-│   └── test_ticket_store.py# Node 2 ticket logic tests
-├── docs/
-│   └── architecture.md
-├── requirements.txt
-├── pytest.ini
-└── README.md
-```

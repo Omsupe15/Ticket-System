@@ -5,7 +5,7 @@ from typing import Any, Dict
 import httpx
 
 from Server.config import get_telegram_config
-from Server.schemas import Channel, TicketIngress
+from database.schemas import Channel, TicketIngress
 
 
 def set_telegram_webhook() -> None:

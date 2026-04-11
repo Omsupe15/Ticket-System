@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dotenv import load_dotenv
+import dotenv
 import os
 from dataclasses import dataclass
 
-load_dotenv()
+dotenv.load_dotenv()
 
 
 @dataclass
@@ -18,6 +18,11 @@ class DiscordConfig:
     bot_token: str
 
 
+@dataclass
+class DatabaseConfig:
+    database_url: str
+
+
 def get_telegram_config() -> TelegramConfig:
     token = os.getenv("TELEGRAM_BOT_TOKEN", "")
     webhook_url = os.getenv("TELEGRAM_WEBHOOK_URL", "")
@@ -27,4 +32,11 @@ def get_telegram_config() -> TelegramConfig:
 def get_discord_config() -> DiscordConfig:
     token = os.getenv("DISCORD_BOT_TOKEN", "")
     return DiscordConfig(bot_token=token)
+
+
+def get_database_config() -> DatabaseConfig:
+    # Expected format:
+    # postgresql+psycopg://user:password@localhost:5432/database_name
+    database_url = os.getenv("DATABASE_URL", "")
+    return DatabaseConfig(database_url=database_url)
 

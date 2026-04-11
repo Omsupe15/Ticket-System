@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import timezone
 from typing import Awaitable, Callable, Optional
 
 import discord
 
 from Server.config import get_discord_config
-from Server.schemas import Channel, TicketIngress
+from database.schemas import Channel, TicketIngress
 
 
 TicketCallback = Callable[[TicketIngress], Awaitable[None]]
@@ -45,7 +46,7 @@ class TicketDiscordClient(discord.Client):
             userid=userid,
             username=username,
             message=content,
-            time=message.created_at.replace(tzinfo=message.created_at.tzinfo),
+            time=message.created_at.astimezone(timezone.utc) if message.created_at.tzinfo else message.created_at.replace(tzinfo=timezone.utc),
         )
 
         if self.on_ticket is not None:

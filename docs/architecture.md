@@ -22,19 +22,21 @@ Improve response organization and visibility
 
 ### B. NODE 2: Database Design (postgresql+sqlalchemy+python)
   1. Create a ticket and Insert the Data in proper schema in postgresql database using SQLAlchemy.
-  2. Each ticket will have auto generated TicketID. Other than that, Userid, Username, time , status, channel(telegram,discord), and messages will be the other fields present.
+  2. Each ticket will have auto generated TicketID. Other than that, Userid, Username, time, status, and channel(telegram,discord) will be present.
   3. status will be set as assigned by default. Other modes are processing, completed and closed.
-  4. message field will have JSONB of messages sent by the same user. Make sure to update and add messages of same userid to the same ticket until the ticket status is closed.
+  4. Messages will be stored in a separate relational table (e.g. `TicketMessages`) that references the `TicketID` via foreign key. Update and add new messages to this table linked to the ticket until the ticket status is closed.
   5. if the same user messages after the ticket is closed, generate a new ticket. 
 
 ### C. Node 3: Internal APIs (FastAPI)
 
   1. /webhook/telegram -> webhook for telegram
-         a. check if the gmailID exists. if yes, check the status of the ticket, if status is anything other than closed, add the message sent inside the array of messages in the same ticket.
-         b. if the status is closed or the gmail does not exist create a new ticket in database according to the Database design.
+         a. Verify standard Telegram secret token to ensure the request is legitimate.
+         b. check the status of the latest ticket, if status is anything other than closed, add the message sent to the related `TicketMessages` table linked to the same ticket.
+         c. if the status is closed create a new ticket in database according to the Database design.
   2. /webhook/discord -> webhook for discord
-         a. check if the gmailID exists. if yes, check the status of the ticket, if status is anything other than closed, add the message sent inside the array of messages in the same ticket.
-         b. if the status is closed or the gmail does not exist create a new ticket in database according to the Database design.
+         a. Verify discord headers/signature to ensure the request is legitimate.
+         b. check the status of the latest ticket, if status is anything other than closed, add the message sent to the related `TicketMessages` table linked to the same ticket.
+         c. if the status is closed create a new ticket in database according to the Database design.
   4. GET/tickets -> gets all the tickets with data, ticketID, Username, created_at, channel and status
   5. GET/tickets/{ticketID} -> gets all the data in the database regarding that ticket.
   6. GET/tickets/{ticketID}/messages -> gets all the messages of given ticket id.

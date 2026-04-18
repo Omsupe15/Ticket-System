@@ -15,14 +15,16 @@ from typing import Any, Dict, Generator, List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel
-from sqlalchemy import asc, desc, select, update
+from sqlalchemy import asc, desc, select, update, func
 from sqlalchemy.orm import Session, joinedload
 
-from Server.config import get_discord_config, get_telegram_config
+from Server.config import get_discord_config, get_telegram_config, get_slack_config
 from database.models import Ticket, TicketMessage
 from database.node2_database import init_node2_database, persist_ingress
 from database.schemas import Channel, TicketIngress
-from bots.telegram_bot import parse_telegram_update, set_telegram_webhook
+from bots.telegram_bot import parse_telegram_update, set_telegram_webhook, send_telegram_message
+from bots.discord_bot import send_discord_dm
+from bots.slack_bot import parse_slack_update, send_slack_message
 
 app = FastAPI(
     title="Ticket System API",
@@ -124,7 +126,9 @@ async def telegram_webhook(request: Request) -> Dict[str, Any]:
     body: Dict[str, Any] = await request.json()
     ingress: Optional[TicketIngress] = parse_telegram_update(body)
     if ingress:
-        persist_ingress(app.state.session_factory, ingress)
+        ticket = persist_ingress(app.state.session_factory, ingress)
+        if ticket.status == "assigned":
+            await send_telegram_message(ticket.userid, f"Your complaint has been assigned. Ticket ID: {ticket.ticket_id}")
 
     return {"ok": True}
 
@@ -177,8 +181,14 @@ async def discord_webhook(request: Request) -> Dict[str, Any]:
         if not _verify_discord_signature(public_key, signature, timestamp, raw_body):
             raise HTTPException(status_code=401, detail="Invalid Discord signature.")
 
+    if not raw_body:
+        raise HTTPException(status_code=400, detail="Empty Discord webhook payload.")
+
     import json
-    body: Dict[str, Any] = json.loads(raw_body)
+    try:
+        body: Dict[str, Any] = json.loads(raw_body)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {exc.msg}") from exc
 
     # Expect the same normalized payload that the Discord gateway produces.
     userid = body.get("userid", "")
@@ -191,7 +201,31 @@ async def discord_webhook(request: Request) -> Dict[str, Any]:
             username=username or None,
             message=message,
         )
-        persist_ingress(app.state.session_factory, ingress)
+        ticket = persist_ingress(app.state.session_factory, ingress)
+        if ticket.status == "assigned":
+            await send_discord_dm(ticket.userid, f"Your complaint has been assigned. Ticket ID: {ticket.ticket_id}")
+
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# B. Webhook – Slack  (POST /webhook/slack)
+# ---------------------------------------------------------------------------
+
+@app.post("/webhook/slack", status_code=200)
+async def slack_webhook(request: Request) -> Dict[str, Any]:
+    """
+    Receives updates pushed by Slack.
+    """
+    body: Dict[str, Any] = await request.json()
+    if "challenge" in body:
+        # Respond to Slack's URL verification challenge
+        return {"challenge": body["challenge"]}
+    ingress: Optional[TicketIngress] = parse_slack_update(body)
+    if ingress:
+        ticket = persist_ingress(app.state.session_factory, ingress)
+        if ticket.status == "assigned":
+            await send_slack_message(ticket.userid, f"Your complaint has been assigned. Ticket ID: {ticket.ticket_id}")
 
     return {"ok": True}
 
@@ -287,7 +321,7 @@ ALLOWED_STATUSES = {"assigned", "processing", "completed", "closed"}
 
 
 @app.post("/tickets/{ticket_id}/status", response_model=TicketOut)
-def set_ticket_status(
+async def set_ticket_status(
     ticket_id: int,
     payload: StatusIn,
     db: Session = Depends(get_session),
@@ -304,9 +338,20 @@ def set_ticket_status(
     if ticket is None:
         raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found.")
 
+    old_status = ticket.status
     ticket.status = payload.status
     db.commit()
     db.refresh(ticket)
+    if old_status != payload.status:
+        msg = f"Your complaint status has changed from {old_status} to {payload.status}."
+        if payload.status == "closed":
+            msg = "Your complaint was resolved."
+        if ticket.channel == "telegram":
+            await send_telegram_message(ticket.userid, msg)
+        elif ticket.channel == "discord":
+            await send_discord_dm(ticket.userid, msg)
+        elif ticket.channel == "slack":
+            await send_slack_message(ticket.userid, msg)
     return ticket
 
 
@@ -315,7 +360,7 @@ def set_ticket_status(
 # ---------------------------------------------------------------------------
 
 @app.patch("/tickets/{ticket_id}/status", response_model=TicketOut)
-def update_ticket_status(
+async def update_ticket_status(
     ticket_id: int,
     payload: StatusIn,
     db: Session = Depends(get_session),
@@ -332,9 +377,20 @@ def update_ticket_status(
     if ticket is None:
         raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found.")
 
+    old_status = ticket.status
     ticket.status = payload.status
     db.commit()
     db.refresh(ticket)
+    if old_status != payload.status:
+        msg = f"Your complaint status has changed from {old_status} to {payload.status}."
+        if payload.status == "closed":
+            msg = "Your complaint was resolved."
+        if ticket.channel == "telegram":
+            await send_telegram_message(ticket.userid, msg)
+        elif ticket.channel == "discord":
+            await send_discord_dm(ticket.userid, msg)
+        elif ticket.channel == "slack":
+            await send_slack_message(ticket.userid, msg)
     return ticket
 
 
@@ -362,3 +418,44 @@ def delete_closed_ticket(ticket_id: int, db: Session = Depends(get_session)) -> 
     db.delete(ticket)
     db.commit()
     return Response(status_code=204)
+
+
+# ---------------------------------------------------------------------------
+# J. GET /stats
+# ---------------------------------------------------------------------------
+
+@app.get("/stats")
+def get_stats(db: Session = Depends(get_session)) -> Dict[str, Any]:
+    """
+    Returns statistics about tickets.
+    """
+    from datetime import datetime, timezone, timedelta
+
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow_start = today_start + timedelta(days=1)
+    week_start = today_start - timedelta(days=now.weekday())  # Monday start
+    week_end = week_start + timedelta(days=7)
+
+    # Total tickets
+    total = db.execute(select(func.count(Ticket.ticket_id))).scalar()
+
+    # Closed tickets
+    closed = db.execute(select(func.count(Ticket.ticket_id)).where(Ticket.status == "closed")).scalar()
+
+    # Assigned tickets
+    assigned = db.execute(select(func.count(Ticket.ticket_id)).where(Ticket.status == "assigned")).scalar()
+
+    # Tickets resolved today (closed today)
+    resolved_today = db.execute(select(func.count(Ticket.ticket_id)).where(Ticket.status == "closed", Ticket.time >= today_start, Ticket.time < tomorrow_start)).scalar()
+
+    # Tickets resolved this week
+    resolved_week = db.execute(select(func.count(Ticket.ticket_id)).where(Ticket.status == "closed", Ticket.time >= week_start, Ticket.time < week_end)).scalar()
+
+    return {
+        "total_tickets": total,
+        "closed_tickets": closed,
+        "assigned_tickets": assigned,
+        "tickets_resolved_today": resolved_today,
+        "tickets_resolved_this_week": resolved_week
+    }

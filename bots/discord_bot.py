@@ -5,6 +5,7 @@ from datetime import timezone
 from typing import Awaitable, Callable, Optional
 
 import discord
+import httpx
 
 from Server.config import get_discord_config
 from database.schemas import Channel, TicketIngress
@@ -22,10 +23,10 @@ class TicketDiscordClient(discord.Client):
     """
 
     def __init__(self, *, on_ticket: Optional[TicketCallback] = None) -> None:
-        intents = discord.Intents.none()
+        intents = discord.Intents.default()
         intents.message_content = True
         intents.guilds = True
-        intents.members = True
+        
 
         super().__init__(intents=intents)
         self.on_ticket = on_ticket
@@ -39,7 +40,9 @@ class TicketDiscordClient(discord.Client):
         username = message.author.display_name
         content = message.content or ""
         if not content:
-            return
+            print(f"Received message with no content from {username} ({userid}), ignoring.")
+            return 
+        
 
         ingress = TicketIngress.new(
             channel=Channel.DISCORD,
@@ -77,4 +80,23 @@ def run_discord_gateway_blocking(on_ticket: Optional[TicketCallback] = None) -> 
     Convenience wrapper to run the Discord gateway in a blocking fashion.
     """
     asyncio.run(run_discord_gateway(on_ticket=on_ticket))
+
+
+async def send_discord_dm(userid: str, message: str) -> None:
+    """
+    Send a direct message to a Discord user via the bot API.
+    """
+    cfg = get_discord_config()
+    if not cfg.bot_token:
+        return
+
+    headers = {"Authorization": f"Bot {cfg.bot_token}", "Content-Type": "application/json"}
+    async with httpx.AsyncClient() as client:
+        # Create DM channel
+        resp = await client.post("https://discord.com/api/v10/users/@me/channels", json={"recipient_id": userid}, headers=headers)
+        if resp.status_code != 200:
+            return
+        channel_id = resp.json()["id"]
+        # Send message
+        await client.post(f"https://discord.com/api/v10/channels/{channel_id}/messages", json={"content": message}, headers=headers)
 

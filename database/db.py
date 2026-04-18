@@ -22,3 +22,4 @@ def create_tables(engine) -> None:
 
     Base.metadata.create_all(engine)
 
+

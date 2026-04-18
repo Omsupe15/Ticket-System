@@ -9,6 +9,7 @@ from typing import Literal, Optional
 class Channel(str, Enum):
     TELEGRAM = "telegram"
     DISCORD = "discord"
+    SLACK = "slack"
 
 
 Status = Literal["assigned", "processing", "completed", "closed"]

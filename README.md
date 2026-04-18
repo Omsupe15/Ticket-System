@@ -8,8 +8,8 @@ A structured customer-support ticketing system that ingests messages from **Tele
 
 | Node | Purpose | Key Files |
 |------|---------|-----------|
-| **Node 1** | External API integration (bots) | `Server/telegram_bot.py`, `Server/discord_bot.py` |
-| **Node 2** | Database design & persistence | `Server/models.py`, `Server/ticket_store.py`, `Server/node2_database.py` |
+| **Node 1** | External API integration (bots) | `bots/telegram_bot.py`, `bots/discord_bot.py`, `bots/slack_bot.py`|
+| **Node 2** | Database design & persistence | `database/models.py`, `database/ticket_store.py`, `database/node2_database.py` |
 | **Node 3** | Internal REST API (FastAPI) | `Server/api.py` |
 
 See [`docs/architecture.md`](docs/architecture.md) for the full specification.
@@ -35,6 +35,8 @@ Create a `.env` file inside the `Server/` directory (or export these in your she
 | `DISCORD_BOT_TOKEN` | Token from the Discord Developer Portal | `MTQ4...` |
 | `DISCORD_PUBLIC_KEY` | Ed25519 public key from Discord Developer Portal (for webhook signature verification) | `abc123...` |
 | `DATABASE_URL` | SQLAlchemy-compatible PostgreSQL connection string | `postgresql+psycopg2://user:pass@localhost:5432/ticket_system` |
+| `SLACK_BOT_TOKEN` | Bot token from Slack App configuration | `xoxb-...` |
+| `SLACK_WEBHOOK_URL` | Public HTTPS URL for Slack to call | `https://example.com/webhook/slack` |
 
 ---
 
@@ -82,6 +84,7 @@ pytest
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/webhook/telegram` | Receives Telegram updates |
+| `POST` | `/webhook/slack` | Receives Slack Updates|
 | `POST` | `/webhook/discord` | Receives Discord payloads |
 | `GET` | `/tickets` | List all tickets |
 | `GET` | `/tickets/sort` | List tickets sorted by field (`status`, `created_at`, `username`, `channel`) |
@@ -90,6 +93,7 @@ pytest
 | `POST` | `/tickets/{ticket_id}/status` | Set ticket status |
 | `PATCH` | `/tickets/{ticket_id}/status` | Update ticket status |
 | `DELETE` | `/tickets/{ticket_id}/status/closed` | Delete a ticket (only if status is `closed`) |
+| `GET` | `/stats` | Returns the number of `closed` tickets, `assigned` tickets, total tickets, tickets resolved today, tickets resolved this week |
 
 ### Ticket Statuses
 
@@ -97,29 +101,6 @@ pytest
 
 ---
 
-## Project Structure
 
-```
-Ticket-System/
-├── Server/
-│   ├── api.py              # Node 3 – FastAPI application
-│   ├── config.py           # Environment configuration
-│   ├── db.py               # SQLAlchemy engine / session setup
-│   ├── discord_bot.py      # Node 1 – Discord gateway client
-│   ├── models.py           # Node 2 – SQLAlchemy ORM models
-│   ├── node2_database.py   # Node 2 – DB initialization helpers
-│   ├── schemas.py          # Node 1 – TicketIngress schema
-│   ├── telegram_bot.py     # Node 1 – Telegram webhook setup & parser
-│   └── ticket_store.py     # Node 2 – Core ticket create/append logic
-├── tests/
-│   ├── conftest.py         # Shared fixtures (in-memory DB, TestClient)
-│   ├── test_api.py         # Node 3 endpoint tests
-│   ├── test_discord_bot.py # Node 1 Discord normalization tests
-│   ├── test_telegram_bot.py# Node 1 Telegram parser tests
-│   └── test_ticket_store.py# Node 2 ticket logic tests
-├── docs/
-│   └── architecture.md
-├── requirements.txt
-├── pytest.ini
-└── README.md
-```
+
+

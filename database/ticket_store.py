@@ -66,3 +66,4 @@ def create_or_append_ticket(session: Session, ingress: TicketIngress) -> Ticket:
     session.refresh(latest)
     return latest
 
+

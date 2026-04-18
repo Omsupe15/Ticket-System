@@ -19,6 +19,11 @@ class DiscordConfig:
 
 
 @dataclass
+class SlackConfig:
+    bot_token: str
+
+
+@dataclass
 class DatabaseConfig:
     database_url: str
 
@@ -32,6 +37,11 @@ def get_telegram_config() -> TelegramConfig:
 def get_discord_config() -> DiscordConfig:
     token = os.getenv("DISCORD_BOT_TOKEN", "")
     return DiscordConfig(bot_token=token)
+
+
+def get_slack_config() -> SlackConfig:
+    token = os.getenv("SLACK_BOT_TOKEN", "")
+    return SlackConfig(bot_token=token)
 
 
 def get_database_config() -> DatabaseConfig:

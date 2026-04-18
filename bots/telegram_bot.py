@@ -28,6 +28,19 @@ def set_telegram_webhook() -> None:
         response.raise_for_status()
 
 
+async def send_telegram_message(userid: str, message: str) -> None:
+    """
+    Send a message to a Telegram user via the bot API.
+    """
+    cfg = get_telegram_config()
+    if not cfg.bot_token:
+        return
+
+    url = f"https://api.telegram.org/bot{cfg.bot_token}/sendMessage"
+    async with httpx.AsyncClient() as client:
+        await client.post(url, json={"chat_id": userid, "text": message})
+
+
 def parse_telegram_update(update: Dict[str, Any]) -> TicketIngress | None:
     """
     Convert a raw Telegram update payload into the normalized TicketIngress schema.

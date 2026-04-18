@@ -34,3 +34,4 @@ def persist_ingress(session_factory, ingress: TicketIngress):
     with session_scope(session_factory) as session:
         return create_or_append_ticket(session, ingress)
 
+

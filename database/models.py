@@ -16,7 +16,7 @@ class Ticket(Base):
             name="ck_tickets_status_allowed",
         ),
         CheckConstraint(
-            "channel IN ('telegram', 'discord')",
+            "channel IN ('telegram', 'discord', 'slack')",
             name="ck_tickets_channel_allowed",
         ),
     )

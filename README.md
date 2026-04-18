@@ -8,8 +8,8 @@ A structured customer-support ticketing system that ingests messages from **Tele
 
 | Node | Purpose | Key Files |
 |------|---------|-----------|
-| **Node 1** | External API integration (bots) | `bots/telegram_bot.py`, `bots/discord_bot.py`, `bots/slack_bot.py`|
-| **Node 2** | Database design & persistence | `database/models.py`, `database/ticket_store.py`, `database/node2_database.py` |
+| **Node 1** | External API integration (bots) | `Server/telegram_bot.py`, `Server/discord_bot.py` |
+| **Node 2** | Database design & persistence | `Server/models.py`, `Server/ticket_store.py`, `Server/node2_database.py` |
 | **Node 3** | Internal REST API (FastAPI) | `Server/api.py` |
 
 See [`docs/architecture.md`](docs/architecture.md) for the full specification.
@@ -69,16 +69,6 @@ The API documentation (Swagger UI) is available at `http://localhost:8000/docs`.
 
 ---
 
-## Running Tests
-
-Tests live in the `tests/` directory and use an **in-memory SQLite** database — no real PostgreSQL needed.
-
-```bash
-pytest
-```
-
----
-
 ## API Reference
 
 | Method | Endpoint | Description |
@@ -101,6 +91,29 @@ pytest
 
 ---
 
+## Project Structure
 
-
-
+```
+Ticket-System/
+├── Server/
+│   ├── api.py              # Node 3 – FastAPI application
+│   ├── config.py           # Environment configuration
+│   ├── db.py               # SQLAlchemy engine / session setup
+│   ├── discord_bot.py      # Node 1 – Discord gateway client
+│   ├── models.py           # Node 2 – SQLAlchemy ORM models
+│   ├── node2_database.py   # Node 2 – DB initialization helpers
+│   ├── schemas.py          # Node 1 – TicketIngress schema
+│   ├── telegram_bot.py     # Node 1 – Telegram webhook setup & parser
+│   └── ticket_store.py     # Node 2 – Core ticket create/append logic
+├── tests/
+│   ├── conftest.py         # Shared fixtures (in-memory DB, TestClient)
+│   ├── test_api.py         # Node 3 endpoint tests
+│   ├── test_discord_bot.py # Node 1 Discord normalization tests
+│   ├── test_telegram_bot.py# Node 1 Telegram parser tests
+│   └── test_ticket_store.py# Node 2 ticket logic tests
+├── docs/
+│   └── architecture.md
+├── requirements.txt
+├── pytest.ini
+└── README.md
+```
